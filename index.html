@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Interactive 3D model of the human membranous labyrinth (semicircular canals, utricle, saccule) from the IE-Map MRI atlas, for teaching vestibular anatomy.">
+<title>Labyrinth Model Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  /* Layout: full-height viewport on the left, a scrolling control rail on the right; stacks on phones. */
+  :root {
+    --bg: #eef0ee;
+    --panel: #f8f9f7;
+    --ink: #1f2522;
+    --muted: #5f6a64;
+    --line: #d5dad6;
+    --accent: #2f7d6b;
+    --accent-ink: #ffffff;
+    --view-bg: #e4e8e5;
+    --font-body: 'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151a18; --panel: #1c2220; --ink: #e3e8e5; --muted: #98a59e; --line: #2e3633;
+      --accent: #5cbfa6; --accent-ink: #0f1513; --view-bg: #111614; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151a18; --panel: #1c2220; --ink: #e3e8e5; --muted: #98a59e; --line: #2e3633;
+    --accent: #5cbfa6; --accent-ink: #0f1513; --view-bg: #111614; color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; }
+  a { color: var(--accent); }
+  .credits { font-size: 0.78rem; color: var(--muted); line-height: 1.45; margin: 0; border-top: 1px solid var(--line); padding-top: 12px; }
+  .app { display: grid; grid-template-columns: minmax(0, 1fr) 340px; height: 100%; }
+  .view { position: relative; background: var(--view-bg); min-height: 320px; }
+  .view canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  .view-hud { position: absolute; left: 16px; bottom: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); pointer-events: none; }
+  .view-status { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--font-mono); font-size: 13px; color: var(--muted); pointer-events: none; }
+  .view-status[hidden] { display: none; }
+  .rail { background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; padding-inline: 16px; padding-block: 16px 32px; display: flex; flex-direction: column; gap: 18px; }
+  h1 { font-size: 1.25rem; margin: 0; text-wrap: balance; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin: 4px 0 0; line-height: 1.4; }
+  section { display: flex; flex-direction: column; gap: 8px; }
+  .label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { font: inherit; font-size: 0.85rem; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.is-active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .row { display: grid; grid-template-columns: 18px minmax(0, 1fr) 28px 72px; align-items: center; gap: 8px; font-size: 0.9rem; }
+  .row .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row input[type=color] { width: 28px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; }
+  .row input[type=range] { width: 72px; }
+  .slider { display: grid; grid-template-columns: minmax(0, 1fr) 120px 32px; align-items: center; gap: 8px; font-size: 0.9rem; }
+  .slider output { font-family: var(--font-mono); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+  details { border-top: 1px solid var(--line); padding-top: 10px; }
+  summary { cursor: pointer; font-size: 0.9rem; color: var(--muted); }
+  .pieces { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .pieces label { display: flex; gap: 8px; font-size: 0.85rem; align-items: center; }
+  .note { font-size: 0.82rem; color: var(--muted); line-height: 1.45; margin: 0; }
+  .note b { color: var(--ink); font-weight: 600; }
+  textarea { width: 100%; min-height: 90px; font-family: var(--font-mono); font-size: 11px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px; box-sizing: border-box; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; }
+  .seg-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.9rem; flex-wrap: wrap; }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: 55vh auto; height: auto; }
+    .rail { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="view" id="view">
+    <canvas id="canvas" aria-label="3D inner ear model"></canvas>
+    <div class="view-status" id="status">Loading inner ear meshes…</div>
+    <div class="view-hud" id="hud">Drag to rotate · scroll or pinch to zoom · right-drag to pan</div>
+  </div>
+
+  <aside class="rail">
+    <div>
+      <h1>Labyrinth Model Lab</h1>
+      <p class="sub">The right membranous labyrinth, built from the IE-Map average of real human MRI scans. Turn structures on and off, recolour them, and rotate the model to see how the semicircular canals, utricle and saccule fit together.</p>
+    </div>
+
+    <section>
+      <span class="label">Starting points</span>
+      <div class="presets" id="presets"></div>
+      <p class="note" id="preset-note"></p>
+    </section>
+
+    <section>
+      <span class="label">Structures</span>
+      <div id="groups"></div>
+    </section>
+
+    <section>
+      <span class="label">Surface</span>
+      <div class="slider"><label for="smooth">Smoothing (Taubin passes)</label><input id="smooth" type="range" min="0" max="40" step="1" value="0"><output id="smooth-out">0</output></div>
+      <div class="slider"><label for="housing-smooth">Housing smoothing</label><input id="housing-smooth" type="range" min="0" max="60" step="1" value="10"><output id="housing-smooth-out">10</output></div>
+      <div class="seg-row"><span>Finish</span>
+        <div class="seg" role="group" aria-label="Finish">
+          <button type="button" data-finish="glass">Glass</button>
+          <button type="button" data-finish="satin">Satin</button>
+          <button type="button" data-finish="clay">Clay</button>
+        </div>
+      </div>
+      <div class="seg-row"><span>Merged skin colour</span>
+        <div class="seg" role="group" aria-label="Merged skin colour">
+          <button type="button" data-skincolor="structure">By structure</button>
+          <button type="button" data-skincolor="single">Single</button>
+        </div>
+      </div>
+      <div class="seg-row"><span>Background</span>
+        <div class="seg" role="group" aria-label="Background">
+          <button type="button" data-bg="theme">Theme</button>
+          <button type="button" data-bg="white">White</button>
+          <button type="button" data-bg="dark">Dark</button>
+        </div>
+      </div>
+    </section>
+
+    <details>
+      <summary>Individual pieces</summary>
+      <div class="pieces" id="pieces"></div>
+    </details>
+
+    <section>
+      <span class="label">What's what</span>
+      <p class="note"><b>Unified smooth skin</b> fuses every duct, ampulla, crus, utricle and saccule into one continuous surface, so you can see the membranous labyrinth as a single connected, fluid-filled system.</p>
+      <p class="note"><b>Fluid envelope (T2 MRI)</b> is the whole fluid-filled inner ear as seen on MRI. Shown faintly, it stands in for the bony labyrinth that houses the membranous one, and it includes the cochlea.</p>
+    </section>
+
+    <section>
+      <div class="presets"><button type="button" id="settings-toggle" aria-expanded="false" aria-controls="settings-panel">Show settings</button></div>
+      <div id="settings-panel" hidden>
+        <section>
+          <textarea id="settings" readonly aria-label="Current settings as JSON"></textarea>
+          <div class="presets"><button type="button" id="copy">Copy settings</button><span class="note" id="copy-status" aria-live="polite"></span></div>
+        </section>
+      </div>
+    </section>
+
+    <p class="credits">
+      Geometry: <b>IE-Map</b> in-vivo inner-ear atlas. Ahmadi S-A, Raiser TM, Rühl RM, Flanagin VL, zu Eulenburg P (2021).
+      IE-Map: a novel in-vivo atlas and template of the human inner ear. <i>Scientific Reports</i> 11, 3293.
+      <a href="https://doi.org/10.1038/s41598-021-82716-0" target="_blank" rel="noopener">doi.org/10.1038/s41598-021-82716-0</a><br>
+      Part of the <a href="https://jakalnz.github.io/vor-simulator/" target="_blank" rel="noopener">VOR Simulator</a> by Michael Sanders ·
+      <a href="https://github.com/jakalnz/labyrinth-model-lab" target="_blank" rel="noopener">source</a>
+    </p>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+  // App's own colours (canalScene.ts) so "Original model" matches what the app drew before the model rework.
+  const GROUPS = {
+    posterior: { label: 'Posterior canal', color: '#d9a441' },
+    anterior: { label: 'Anterior canal', color: '#9b7ed8' },
+    horizontal: { label: 'Horizontal canal', color: '#74c69d' },
+    simplecrus: { label: 'Horizontal simple crus', color: '#74c69d' },
+    crus: { label: 'Common crus', color: '#ba918d' },
+    utricle: { label: 'Utricle', color: '#c9a227' },
+    saccule: { label: 'Saccule', color: '#c9a227' },
+    cupula: { label: 'Cupulae', color: '#d6d2ca' },
+    cochlea: { label: 'Cochlear duct', color: '#c98a8a' },
+  };
+  const HOUSING = {
+    skin: { label: 'Unified smooth skin', color: '#c9cfcb' },
+    envelope: { label: 'Fluid envelope (T2)', color: '#b9c4cc' },
+  };
+
+  // The original model drew both crus outlines (CCa + CCp merged); the other presets use
+  // only the outer one -- CCp sits ~97% inside CCa as a concentric inner tube, so showing
+  // both just doubles the wall.
+  const BASE_PIECES = ['post-duct','ant-duct','hor-duct','post-ampulla','ant-ampulla','hor-ampulla','post-cupula','ant-cupula','hor-cupula','post-cup-ut','ant-cup-ut','hor-cup-ut','crus-a','crus-p','sinus','utricle','saccule'];
+  const CLEAN_PIECES = BASE_PIECES.filter((p) => p !== 'crus-p');
+
+  function groupState(on, opacity, color) { return { on, opacity, color }; }
+  function defaultGroups() {
+    const g = {};
+    for (const [k, v] of Object.entries(GROUPS)) g[k] = groupState(k !== 'cochlea', 0.4, v.color);
+    g.utricle.opacity = 0.16; g.saccule.opacity = 0.2; g.crus.opacity = 0.3; g.cupula.opacity = 0.6; g.cochlea.opacity = 0.35;
+    for (const [k, v] of Object.entries(HOUSING)) g[k] = groupState(false, 0.25, v.color);
+    return g;
+  }
+
+  const PRESETS = [
+    { id: 'current', label: 'VOR Simulator', note: 'The model as drawn in the VOR Simulator.',
+      make(s) {
+        s.pieces = Object.fromEntries([...CLEAN_PIECES, 'ucp'].map((p) => [p, true]));
+        s.smooth = 8; s.housingSmooth = 25; s.finish = 'glass'; s.skinColor = 'structure';
+        s.groups.crus.color = '#ba918d'; s.groups.crus.opacity = 0.4;
+        s.groups.simplecrus.color = '#ba918d'; s.groups.simplecrus.opacity = 0.4;
+        s.groups.utricle.color = '#c926c4'; s.groups.utricle.opacity = 0.16;
+        s.groups.saccule.color = '#26a9c9'; s.groups.saccule.opacity = 0.2;
+      } },
+    { id: 'today', label: 'Raw scan pieces', note: 'The atlas pieces with no smoothing, including both traced outlines of the common crus.',
+      make(s) { s.pieces = Object.fromEntries(BASE_PIECES.map((p) => [p, true])); } },
+    { id: 'junction', label: '+ Crus junction', note: 'The original model with one crus wall instead of two, plus the unused UCp piece and light smoothing.',
+      make(s) { s.pieces = Object.fromEntries([...CLEAN_PIECES, 'ucp'].map((p) => [p, true])); s.smooth = 8; } },
+    { id: 'skin', label: 'Smooth skin', note: 'One fused surface, tinted by structure. Cupulae shown inside.',
+      make(s) { s.pieces = { 'post-cupula': true, 'ant-cupula': true, 'hor-cupula': true, skin: true };
+        s.groups.skin.on = true; s.groups.skin.opacity = 0.55; s.groups.cupula.opacity = 0.8; s.housingSmooth = 15; s.skinColor = 'structure'; } },
+    { id: 'shell', label: 'Glass shell', note: 'Coloured canals inside a faint merged shell that ties the utricle and saccule in.',
+      make(s) { s.pieces = Object.fromEntries([...CLEAN_PIECES, 'ucp', 'skin'].map((p) => [p, true]));
+        s.groups.skin.on = true; s.groups.skin.opacity = 0.14; s.skinColor = 'single'; s.smooth = 8; } },
+    { id: 'housed', label: 'Housed in fluid', note: 'The original pieces (one crus wall) plus UCp, inside the T2 MRI fluid envelope, with cochlea.',
+      make(s) { s.pieces = Object.fromEntries([...CLEAN_PIECES, 'ucp', 'envelope', 'cochlea'].map((p) => [p, true]));
+        s.groups.envelope.on = true; s.groups.envelope.opacity = 0.12; s.groups.cochlea.on = true; s.smooth = 8; s.housingSmooth = 25; } },
+  ];
+
+  let state = null;
+  function freshState() {
+    return { preset: 'today', smooth: 0, housingSmooth: 10, finish: 'glass', skinColor: 'structure', bg: 'theme', groups: defaultGroups(), pieces: {} };
+  }
+  function applyPreset(id) {
+    const p = PRESETS.find((x) => x.id === id);
+    state = freshState();
+    state.preset = id;
+    p.make(state);
+    for (const g of Object.keys(GROUPS)) {
+      const anyOn = data.pieces.some((pc) => pc.group === g && state.pieces[pc.id]);
+      state.groups[g].on = anyOn;
+    }
+    syncUI();
+    rebuildAll();
+  }
+
+  // ---------- three setup ----------
+  const canvas = document.getElementById('canvas');
+  const view = document.getElementById('view');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 200);
+  const controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f8c, 0.75));
+  const key = new THREE.DirectionalLight(0xffffff, 0.75); key.position.set(10, 14, 8); scene.add(key);
+  const rim = new THREE.DirectionalLight(0xffffff, 0.35); rim.position.set(-8, -4, -10); scene.add(rim);
+  const root = new THREE.Group();
+  // HeadFrame (+X anterior, +Y left, +Z up) -> three (+Y up): (x, z, -y). Proper rotation.
+  root.matrixAutoUpdate = false;
+  root.matrix.set(1,0,0,0, 0,0,1,0, 0,-1,0,0, 0,0,0,1);
+  scene.add(root);
+
+  function resize() {
+    const w = view.clientWidth, h = view.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / Math.max(h, 1);
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(view);
+
+  // ---------- data ----------
+  let data = null;
+  const meshes = {}; // id -> { mesh, base: Float32Array, adj, group }
+
+  function decode(b64, Type) {
+    const bin = atob(b64);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    return new Type(buf.buffer);
+  }
+  function adjacency(index, n) {
+    const sets = Array.from({ length: n }, () => new Set());
+    for (let i = 0; i < index.length; i += 3) {
+      const a = index[i], b = index[i + 1], c = index[i + 2];
+      sets[a].add(b); sets[a].add(c); sets[b].add(a); sets[b].add(c); sets[c].add(a); sets[c].add(b);
+    }
+    const off = new Uint32Array(n + 1);
+    for (let i = 0; i < n; i++) off[i + 1] = off[i] + sets[i].size;
+    const nb = new Uint32Array(off[n]);
+    for (let i = 0; i < n; i++) { let j = off[i]; for (const v of sets[i]) nb[j++] = v; }
+    return { off, nb };
+  }
+  // Taubin lambda/mu smoothing: removes the voxel/scan lumpiness without shrinking tubes.
+  function taubin(base, adj, passes) {
+    let a = Float32Array.from(base);
+    if (!passes) return a;
+    let b = new Float32Array(a.length);
+    const n = a.length / 3;
+    for (let p = 0; p < passes * 2; p++) {
+      const f = p % 2 === 0 ? 0.5 : -0.53;
+      for (let i = 0; i < n; i++) {
+        const s = adj.off[i], e = adj.off[i + 1];
+        if (e === s) { b[3*i] = a[3*i]; b[3*i+1] = a[3*i+1]; b[3*i+2] = a[3*i+2]; continue; }
+        let x = 0, y = 0, z = 0;
+        for (let j = s; j < e; j++) { const v = adj.nb[j] * 3; x += a[v]; y += a[v + 1]; z += a[v + 2]; }
+        const k = 1 / (e - s);
+        b[3*i] = a[3*i] + f * (x * k - a[3*i]);
+        b[3*i+1] = a[3*i+1] + f * (y * k - a[3*i+1]);
+        b[3*i+2] = a[3*i+2] + f * (z * k - a[3*i+2]);
+      }
+      [a, b] = [b, a];
+    }
+    return a;
+  }
+
+  function makeMaterial(colorHex, opacity, finish, vertexColors) {
+    const solid = opacity >= 0.99;
+    const common = { color: vertexColors ? 0xffffff : new THREE.Color(colorHex), vertexColors: !!vertexColors, transparent: !solid, opacity, side: THREE.DoubleSide, depthWrite: solid };
+    if (finish === 'glass') return new THREE.MeshPhysicalMaterial({ ...common, roughness: 0.25, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.3 });
+    if (finish === 'satin') return new THREE.MeshStandardMaterial({ ...common, roughness: 0.55, metalness: 0 });
+    return new THREE.MeshLambertMaterial(common);
+  }
+
+  function isHousing(id) { return id === 'skin' || id === 'envelope'; }
+  function groupKeyOf(pc) { return isHousing(pc.id) ? pc.id : pc.group; }
+
+  function rebuildGeometry(id) {
+    const m = meshes[id];
+    const passes = isHousing(id) ? state.housingSmooth : state.smooth;
+    if (m.passes === passes) return;
+    const pos = taubin(m.base, m.adj, passes);
+    m.mesh.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    m.mesh.geometry.computeVertexNormals();
+    m.mesh.geometry.computeBoundingSphere();
+    m.passes = passes;
+  }
+
+  // Skin vertex colours: nearest source-piece vertex's group colour, then blended over
+  // neighbours so boundaries between structures fade instead of stepping.
+  function skinColors() {
+    const skin = meshes.skin;
+    const n = skin.base.length / 3;
+    const cell = 0.25, hash = new Map();
+    for (const pc of data.pieces) {
+      if (!pc.inUnion) continue;
+      const b = meshes[pc.id].base;
+      for (let i = 0; i < b.length; i += 6) {
+        const k = Math.floor(b[i]/cell) + ',' + Math.floor(b[i+1]/cell) + ',' + Math.floor(b[i+2]/cell);
+        let arr = hash.get(k); if (!arr) hash.set(k, arr = []);
+        arr.push(b[i], b[i+1], b[i+2], pc.group);
+      }
+    }
+    const groupsAt = new Array(n);
+    const sb = skin.base;
+    for (let i = 0; i < n; i++) {
+      const x = sb[3*i], y = sb[3*i+1], z = sb[3*i+2];
+      const cx = Math.floor(x/cell), cy = Math.floor(y/cell), cz = Math.floor(z/cell);
+      let best = 1e9, bg = 'utricle';
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+        const arr = hash.get((cx+dx) + ',' + (cy+dy) + ',' + (cz+dz)); if (!arr) continue;
+        for (let j = 0; j < arr.length; j += 4) { const d = (arr[j]-x)**2 + (arr[j+1]-y)**2 + (arr[j+2]-z)**2; if (d < best) { best = d; bg = arr[j+3]; } }
+      }
+      groupsAt[i] = bg;
+    }
+    return groupsAt;
+  }
+  let skinGroups = null;
+  function applySkinColors() {
+    const m = meshes.skin; if (!m) return;
+    const n = m.base.length / 3;
+    let col = new Float32Array(n * 3);
+    const c = new THREE.Color();
+    for (let i = 0; i < n; i++) { c.set(state.groups[skinGroups[i]].color).convertSRGBToLinear(); col[3*i] = c.r; col[3*i+1] = c.g; col[3*i+2] = c.b; }
+    for (let pass = 0; pass < 4; pass++) {
+      const out = new Float32Array(col.length);
+      for (let i = 0; i < n; i++) {
+        const s = m.adj.off[i], e = m.adj.off[i + 1];
+        let r = col[3*i], g = col[3*i+1], b = col[3*i+2], k = 1;
+        for (let j = s; j < e; j++) { const v = m.adj.nb[j]*3; r += col[v]; g += col[v+1]; b += col[v+2]; k++; }
+        out[3*i] = r/k; out[3*i+1] = g/k; out[3*i+2] = b/k;
+      }
+      col = out;
+    }
+    m.mesh.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  }
+
+  function rebuildAll() {
+    for (const pc of data.pieces) {
+      const m = meshes[pc.id];
+      const gk = groupKeyOf(pc);
+      const gs = state.groups[gk];
+      const visible = !!state.pieces[pc.id] && gs.on;
+      m.mesh.visible = visible;
+      if (!visible) continue;
+      rebuildGeometry(pc.id);
+      const byStructure = pc.id === 'skin' && state.skinColor === 'structure';
+      if (byStructure) applySkinColors();
+      if (m.mesh.material) m.mesh.material.dispose();
+      m.mesh.material = makeMaterial(gs.color, gs.opacity, state.finish, byStructure);
+      // Housing draws last so the coloured structures inside aren't washed out by it.
+      m.mesh.renderOrder = isHousing(pc.id) ? 2 : pc.group === 'cupula' ? 1 : 0;
+    }
+    const bgMap = { white: '#ffffff', dark: '#0e1211' };
+    view.style.background = state.bg === 'theme' ? '' : bgMap[state.bg];
+    writeSettings();
+  }
+
+  // ---------- UI ----------
+  const groupsEl = document.getElementById('groups');
+  const piecesEl = document.getElementById('pieces');
+  const groupRows = {};
+  function buildUI() {
+    const presetsEl = document.getElementById('presets');
+    for (const p of PRESETS) {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = p.label; b.dataset.preset = p.id;
+      b.addEventListener('click', () => applyPreset(p.id));
+      presetsEl.append(b);
+    }
+    const all = { ...GROUPS, ...HOUSING };
+    for (const [k, v] of Object.entries(all)) {
+      const row = document.createElement('div'); row.className = 'row';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = 'g-' + k; cb.setAttribute('aria-label', 'Show ' + v.label);
+      const name = document.createElement('label'); name.className = 'name'; name.htmlFor = cb.id; name.textContent = v.label;
+      const color = document.createElement('input'); color.type = 'color'; color.id = 'gc-' + k; color.setAttribute('aria-label', v.label + ' colour');
+      const op = document.createElement('input'); op.type = 'range'; op.min = '0.05'; op.max = '1'; op.step = '0.05'; op.id = 'go-' + k; op.setAttribute('aria-label', v.label + ' opacity');
+      cb.addEventListener('change', () => {
+        state.groups[k].on = cb.checked;
+        // Turning a group on with none of its pieces selected switches its pieces on too.
+        if (cb.checked) {
+          const ids = data.pieces.filter((pc) => groupKeyOf(pc) === k).map((pc) => pc.id);
+          if (!ids.some((id) => state.pieces[id])) ids.forEach((id) => (state.pieces[id] = true));
+        }
+        markCustom(); syncUI(); rebuildAll();
+      });
+      color.addEventListener('input', () => { state.groups[k].color = color.value; markCustom(); rebuildAll(); });
+      op.addEventListener('input', () => { state.groups[k].opacity = parseFloat(op.value); markCustom(); rebuildAll(); });
+      row.append(cb, name, color, op);
+      groupsEl.append(row);
+      groupRows[k] = { cb, color, op };
+    }
+    for (const pc of data.pieces) {
+      const l = document.createElement('label');
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = 'p-' + pc.id;
+      cb.addEventListener('change', () => {
+        state.pieces[pc.id] = cb.checked;
+        if (cb.checked) state.groups[groupKeyOf(pc)].on = true;
+        markCustom(); syncUI(); rebuildAll();
+      });
+      l.append(cb, document.createTextNode(pc.label));
+      piecesEl.append(l);
+    }
+    const smooth = document.getElementById('smooth'), hs = document.getElementById('housing-smooth');
+    smooth.addEventListener('input', () => { state.smooth = +smooth.value; markCustom(); syncUI(); rebuildAll(); });
+    hs.addEventListener('input', () => { state.housingSmooth = +hs.value; markCustom(); syncUI(); rebuildAll(); });
+    for (const [attr, keyName] of [['finish', 'finish'], ['skincolor', 'skinColor'], ['bg', 'bg']]) {
+      for (const b of document.querySelectorAll('[data-' + attr + ']')) {
+        b.addEventListener('click', () => { state[keyName] = b.dataset[attr]; markCustom(); syncUI(); rebuildAll(); });
+      }
+    }
+    document.getElementById('copy').addEventListener('click', () => {
+      const ta = document.getElementById('settings');
+      const status = document.getElementById('copy-status');
+      navigator.clipboard.writeText(ta.value).then(
+        () => { status.textContent = 'Copied.'; },
+        () => { ta.focus(); ta.select(); status.textContent = 'Selected. Press Ctrl+C to copy.'; }
+      );
+    });
+    const settingsToggle = document.getElementById('settings-toggle');
+    const settingsPanel = document.getElementById('settings-panel');
+    settingsToggle.addEventListener('click', () => {
+      const open = settingsPanel.hidden;
+      settingsPanel.hidden = !open;
+      settingsToggle.setAttribute('aria-expanded', String(open));
+      settingsToggle.textContent = open ? 'Hide settings' : 'Show settings';
+    });
+  }
+  function markCustom() { if (!state.preset.endsWith('*')) state.preset += '*'; }
+  function syncUI() {
+    for (const b of document.querySelectorAll('[data-preset]')) b.classList.toggle('is-active', state.preset === b.dataset.preset);
+    const p = PRESETS.find((x) => state.preset.startsWith(x.id));
+    document.getElementById('preset-note').textContent = p ? p.note + (state.preset.endsWith('*') ? ' (edited)' : '') : '';
+    for (const [k, r] of Object.entries(groupRows)) {
+      r.cb.checked = state.groups[k].on; r.color.value = state.groups[k].color; r.op.value = state.groups[k].opacity;
+    }
+    for (const pc of data.pieces) document.getElementById('p-' + pc.id).checked = !!state.pieces[pc.id];
+    document.getElementById('smooth').value = state.smooth; document.getElementById('smooth-out').textContent = state.smooth;
+    document.getElementById('housing-smooth').value = state.housingSmooth; document.getElementById('housing-smooth-out').textContent = state.housingSmooth;
+    for (const b of document.querySelectorAll('[data-finish]')) b.classList.toggle('is-active', b.dataset.finish === state.finish);
+    for (const b of document.querySelectorAll('[data-skincolor]')) b.classList.toggle('is-active', b.dataset.skincolor === state.skinColor);
+    for (const b of document.querySelectorAll('[data-bg]')) b.classList.toggle('is-active', b.dataset.bg === state.bg);
+  }
+  function writeSettings() {
+    const shown = Object.keys(state.pieces).filter((id) => state.pieces[id] && state.groups[groupKeyOf(data.pieces.find((p) => p.id === id))].on);
+    const groups = {};
+    for (const [k, g] of Object.entries(state.groups)) if (g.on) groups[k] = { color: g.color, opacity: g.opacity };
+    document.getElementById('settings').value = JSON.stringify({ preset: state.preset, pieces: shown, groups, smooth: state.smooth, housingSmooth: state.housingSmooth, finish: state.finish, skinColor: state.skinColor }, null, 1);
+  }
+
+  function frame() {
+    const box = new THREE.Box3();
+    for (const pc of data.pieces) if (BASE_PIECES.includes(pc.id)) { meshes[pc.id].mesh.geometry.computeBoundingBox(); box.union(meshes[pc.id].mesh.geometry.boundingBox.clone().applyMatrix4(root.matrix)); }
+    const c = box.getCenter(new THREE.Vector3()), r = box.getSize(new THREE.Vector3()).length() / 2;
+    controls.target.copy(c);
+    camera.position.copy(c).add(new THREE.Vector3(0.35, 0.25, 1).normalize().multiplyScalar(r / Math.sin(THREE.MathUtils.degToRad(17)) * 1.05));
+    camera.near = r / 50; camera.far = r * 40; camera.updateProjectionMatrix();
+  }
+
+  fetch('ear-data.json').then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }).then((d) => {
+    data = d;
+    // The data file groups both otolith organs as 'otolith'; give each its own control.
+    for (const pc of d.pieces) if (pc.id === 'utricle' || pc.id === 'saccule') pc.group = pc.id;
+    // The horizontal canal's simple crus (dataset piece SC) gets its own colour control.
+    for (const pc of d.pieces) if (pc.id === 'sinus') pc.group = 'simplecrus';
+    // CCa/CCp are nested outlines of the same crus (measured), not halves -- relabel.
+    const relabel = {
+      'crus-a': 'Common crus, outer wall (CCa)',
+      'crus-p': 'Common crus, inner wall (CCp)',
+      sinus: 'Horizontal simple crus (SC)',
+    };
+    for (const pc of d.pieces) if (relabel[pc.id]) pc.label = relabel[pc.id];
+    for (const pc of d.pieces) {
+      const q = decode(pc.pos, Int16Array);
+      const base = new Float32Array(q.length);
+      for (let i = 0; i < q.length; i++) base[i] = q[i] * d.scale;
+      const index = pc.idx32 ? decode(pc.idx, Uint32Array) : decode(pc.idx, Uint16Array);
+      const geom = new THREE.BufferGeometry();
+      geom.setIndex(new THREE.BufferAttribute(index, 1));
+      geom.setAttribute('position', new THREE.BufferAttribute(Float32Array.from(base), 3));
+      geom.computeVertexNormals();
+      const mesh = new THREE.Mesh(geom);
+      mesh.visible = false;
+      root.add(mesh);
+      meshes[pc.id] = { mesh, base, adj: adjacency(index, base.length / 3), passes: 0, group: pc.group };
+    }
+    skinGroups = skinColors();
+    buildUI();
+    resize();
+    applyPreset('current');
+    frame();
+    document.getElementById('status').hidden = true;
+  }).catch((e) => {
+    document.getElementById('status').textContent = 'Could not load the mesh data (' + e.message + '). Reload the page to try again.';
+  });
+
+  (function loop() { controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+})();
+</script>
+</body>
+</html>
